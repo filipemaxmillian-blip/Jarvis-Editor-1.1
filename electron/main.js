@@ -10,13 +10,18 @@ function createWindow() {
     minHeight: 600,
     title: "Jarvis Editor",
     backgroundColor: "#0b0c10",
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true
     }
   });
 
-  win.loadFile(path.join(__dirname, "../dist/index.html"));
+  if (app.isPackaged) {
+    win.loadFile(path.join(__dirname, "../dist/index.html"));
+  } else {
+    win.loadURL("http://127.0.0.1:5173");
+  }
 }
 
 app.whenReady().then(() => {
