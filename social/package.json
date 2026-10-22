@@ -1,0 +1,11 @@
+{
+  "name": "jarvis-social",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Jarvis Social - agendador de posts e comentários para Instagram, TikTok, Facebook e YouTube (PWA)",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "preview": "node build.mjs && npx --yes serve dist"
+  }
+}

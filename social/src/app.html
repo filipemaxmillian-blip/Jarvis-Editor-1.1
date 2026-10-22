@@ -1,0 +1,682 @@
+<title>Jarvis Social</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Manrope:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one phone-width column, sticky header, fixed iOS-style tab bar, bottom sheets for create/edit. */
+:root {
+  --bg: #0d1015;
+  --surface: #161a22;
+  --surface-2: #1e2430;
+  --line: #2a3140;
+  --fg: #eef1f6;
+  --muted: #98a1b3;
+  --accent: #ff8a3d;
+  --accent-ink: #1a0d03;
+  --ok: #3ccf8e;
+  --warn: #f5b942;
+  --bad: #ff5d6c;
+  --ig: #e1306c;
+  --fb: #3b82f6;
+  --tt: #19c6cc;
+  --yt: #ff3045;
+  --font-display: "Unbounded", "Avenir Next", system-ui, sans-serif;
+  --font-body: "Manrope", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --radius: 14px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f4f5f8; --surface: #ffffff; --surface-2: #eceef3; --line: #dcdfe7;
+    --fg: #11151c; --muted: #5d6578; --accent: #d9601a; --accent-ink: #ffffff;
+    --ok: #13895a; --warn: #a86f00; --bad: #d23040;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f4f5f8; --surface: #ffffff; --surface-2: #eceef3; --line: #dcdfe7;
+  --fg: #11151c; --muted: #5d6578; --accent: #d9601a; --accent-ink: #ffffff;
+  --ok: #13895a; --warn: #a86f00; --bad: #d23040;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--fg); }
+body { font-family: var(--font-body); font-size: 15px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.shell { max-width: 560px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 14px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand-mark { width: 34px; height: 34px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 15px; flex: none; }
+.brand h1 { font-family: var(--font-display); font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.brand small { display: block; color: var(--muted); font-size: 12px; }
+.demo-pill { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--warn); border: 1px solid currentColor; border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+
+h2.view-title { font-family: var(--font-display); font-weight: 500; font-size: 24px; letter-spacing: -0.02em; margin: 6px 0 4px; text-wrap: balance; }
+.view-sub { color: var(--muted); margin: 0 0 18px; }
+h3.group { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 22px 0 10px; }
+
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; min-width: 0; }
+.note { background: var(--surface-2); border-radius: var(--radius); padding: 12px 14px; color: var(--muted); font-size: 13.5px; }
+.note strong { color: var(--fg); }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+.stat b { display: block; font-family: var(--font-display); font-weight: 500; font-size: 22px; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--muted); }
+
+.post { display: grid; grid-template-columns: 58px 1fr; gap: 12px; }
+.thumb { width: 58px; height: 74px; border-radius: 10px; background: var(--surface-2); display: grid; place-items: center; overflow: hidden; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .05em; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.post-body { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.post-time { font-weight: 700; font-variant-numeric: tabular-nums; }
+.caption { margin: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+.status { font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 2px 9px; border: 1px solid currentColor; }
+.status.agendado { color: var(--accent); }
+.status.publicado { color: var(--ok); }
+.status.lembrete { color: var(--warn); }
+
+.acct { display: inline-flex; align-items: center; gap: 6px; background: var(--surface-2); border-radius: 999px; padding: 3px 10px 3px 3px; font-size: 12.5px; max-width: 100%; }
+.acct span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf { width: 22px; height: 22px; border-radius: 7px; display: inline-grid; place-items: center; font-size: 10px; font-weight: 800; color: #fff; flex: none; letter-spacing: 0; }
+.pf.lg { width: 34px; height: 34px; border-radius: 10px; font-size: 13px; }
+.pf.instagram { background: var(--ig); } .pf.facebook { background: var(--fb); } .pf.tiktok { background: var(--tt); color: #04211f; } .pf.youtube { background: var(--yt); }
+
+.btn { border: 1px solid var(--line); background: var(--surface-2); border-radius: 10px; padding: 8px 12px; font-weight: 600; font-size: 13.5px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--bad); background: transparent; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.block { width: 100%; padding: 13px; font-size: 15px; border-radius: 12px; }
+
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 8px; scrollbar-width: none; }
+.chip { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+.comment-head { display: flex; align-items: center; gap: 10px; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--surface-2); display: grid; place-items: center; font-weight: 700; flex: none; }
+.comment-meta { min-width: 0; flex: 1; }
+.comment-meta b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comment-meta small { color: var(--muted); }
+.comment-text { margin: 10px 0 8px; overflow-wrap: anywhere; }
+.replied { border-left: 2px solid var(--line); padding-left: 10px; color: var(--muted); font-size: 13.5px; margin: 6px 0; overflow-wrap: anywhere; }
+.tag { font-size: 11.5px; font-weight: 700; color: var(--ok); }
+
+.platform-head { display: flex; align-items: center; gap: 10px; }
+.platform-head div { flex: 1; min-width: 0; }
+.platform-head b { display: block; }
+.platform-head small { color: var(--muted); font-size: 12.5px; }
+.acct-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.acct-row div { flex: 1; min-width: 0; }
+.acct-row b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-row small { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.switch { position: relative; width: 46px; height: 28px; border-radius: 999px; background: var(--line); border: 0; flex: none; transition: background .2s; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.switch[aria-checked="true"] { background: var(--ok); }
+.switch[aria-checked="true"]::after { transform: translateX(18px); }
+
+.rule-flow { display: grid; grid-template-columns: 1fr; gap: 4px; margin-top: 12px; font-size: 13.5px; }
+.rule-flow dt { color: var(--muted); font-weight: 700; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; margin-top: 6px; }
+.rule-flow dd { margin: 0; overflow-wrap: anywhere; }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 460px; font-size: 13px; }
+th, td { padding: 9px 10px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+td.y { color: var(--ok); font-weight: 700; } td.n { color: var(--bad); font-weight: 700; } td.p { color: var(--warn); font-weight: 700; }
+
+/* Tab bar */
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--line); padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
+.tabs-inner { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; }
+.tab { border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 600; color: var(--muted); padding: 6px 0; }
+.tab svg { width: 22px; height: 22px; }
+.tab[aria-current="page"] { color: var(--fg); }
+.tab.create span.plus { width: 46px; height: 46px; border-radius: 14px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; }
+.badge { min-width: 16px; height: 16px; border-radius: 8px; background: var(--bad); color: #fff; font-size: 10px; line-height: 16px; padding: 0 4px; position: absolute; transform: translate(12px, -4px); }
+.tab-icon { position: relative; display: grid; place-items: center; }
+
+/* Sheet */
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 20; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; max-height: calc(100% - 24px - env(safe-area-inset-top, 0px)); overflow-y: auto; background: var(--bg); border-radius: 20px 20px 0 0; border-top: 1px solid var(--line); }
+.sheet-inner { max-width: 560px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 8px calc(24px + env(safe-area-inset-bottom, 0px)); }
+.grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 4px auto 10px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.sheet-head h2 { font-family: var(--font-display); font-weight: 500; font-size: 19px; margin: 0; }
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.field > label, .field > .label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.input { width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; font-size: 16px; }
+textarea.input { min-height: 96px; resize: vertical; }
+.counter { font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.pick { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.pick input { width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
+.pick div { flex: 1; min-width: 0; }
+.pick small { display: block; color: var(--muted); font-size: 12.5px; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--surface-2); border-radius: 12px; padding: 3px; gap: 3px; }
+.seg.two { grid-template-columns: 1fr 1fr; }
+.seg button { border: 0; background: transparent; border-radius: 9px; padding: 8px; font-weight: 600; font-size: 13.5px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.drop { border: 1.5px dashed var(--line); border-radius: 14px; padding: 18px; text-align: center; color: var(--muted); background: var(--surface); display: block; cursor: pointer; }
+.field > label.drop { font-size: 14px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.drop img { max-height: 180px; border-radius: 10px; margin: 0 auto; display: block; }
+.opt-badge { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+.opt-badge.api { color: var(--ok); background: color-mix(in srgb, var(--ok) 15%, transparent); }
+.opt-badge.manual { color: var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent); }
+.error { color: var(--bad); font-size: 13.5px; margin: 0 0 12px; }
+
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(88px + env(safe-area-inset-bottom, 0px)); z-index: 30; background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-weight: 600; font-size: 14px; max-width: calc(100% - 32px); }
+.empty { text-align: center; color: var(--muted); padding: 28px 12px; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="shell">
+  <header class="top">
+    <div class="brand">
+      <div class="brand-mark">J</div>
+      <div><h1>Jarvis Social</h1><small id="top-sub">Postagens e interações</small></div>
+    </div>
+    <span class="demo-pill" title="Os dados abaixo são exemplos. Nada é publicado de verdade ainda.">Demonstração</span>
+  </header>
+  <main id="view"></main>
+</div>
+
+<nav class="tabs" aria-label="Navegação">
+  <div class="tabs-inner">
+    <button class="tab" data-tab="agenda"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span>Agenda</button>
+    <button class="tab" data-tab="inbox"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="badge" id="inbox-badge" hidden></span></span>Comentários</button>
+    <button class="tab create" data-action="compose" aria-label="Criar post"><span class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></button>
+    <button class="tab" data-tab="rules"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></svg></span>Automações</button>
+    <button class="tab" data-tab="accounts"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 20c.8-3.4 3.4-5 6.5-5s5.7 1.6 6.5 5M16 5.2a3.5 3.5 0 0 1 0 6.6M18 15.3c2 .6 3.1 2.2 3.5 4.7"/></svg></span>Contas</button>
+  </div>
+</nav>
+
+<div class="scrim" id="scrim" hidden></div>
+<section class="sheet" id="sheet" hidden role="dialog" aria-modal="true"><div class="sheet-inner" id="sheet-body"></div></section>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // What each network's official API allows. Drives the composer options and the limits table.
+  const PLATFORMS = {
+    instagram: { name: "Instagram", short: "IG", need: "Conta Profissional (Criador ou Empresa)" },
+    facebook:  { name: "Facebook",  short: "FB", need: "Páginas que você administra" },
+    tiktok:    { name: "TikTok",    short: "TT", need: "Qualquer conta; app precisa passar na auditoria do TikTok" },
+    youtube:   { name: "YouTube",   short: "YT", need: "Canais da sua conta Google" }
+  };
+  const ORDER = ["instagram", "facebook", "tiktok", "youtube"];
+
+  const LIMITS = [
+    ["Postar e agendar",             ["y", "y", "p", "y"], "TikTok: enquanto o app não for auditado, os posts saem como privados."],
+    ["Responder comentários",        ["y", "y", "p", "y"], "TikTok: só para contas Business, com acesso aprovado à API de negócios."],
+    ["Mensagem privada a quem comentou", ["y", "y", "n", "n"], "Uma mensagem por comentário, em até 7 dias. YouTube não tem mensagens diretas."],
+    ["Desativar comentários no post", ["y", "n", "y", "n"], ""],
+    ["Enquete",                      ["n", "n", "n", "n"], "Nenhuma rede libera enquetes por API. O app te lembra de criar na hora."],
+    ["Ocultar curtidas",             ["n", "n", "n", "n"], "Só pelo app oficial. O app te lembra de ativar logo após publicar."],
+    ["Ver quem curtiu",              ["n", "p", "n", "n"], "Facebook mostra parte das reações em Páginas. As outras não liberam."],
+    ["Saber se a pessoa te segue",   ["n", "n", "n", "n"], "Nenhuma API expõe a lista de seguidores."]
+  ];
+  const MARK = { y: "Sim", n: "Não", p: "Limitado" };
+
+  const KEY = "jarvis-social-v1";
+  const now = Date.now();
+  const H = 3600e3, D = 24 * H;
+  const at = (offset, hour, min = 0) => { const d = new Date(now + offset); d.setHours(hour, min, 0, 0); return d.toISOString(); };
+
+  const SEED = () => ({
+    accounts: [
+      { id: "a1", platform: "instagram", handle: "@jarvis.cortes", name: "Jarvis Cortes", followers: 18400 },
+      { id: "a2", platform: "instagram", handle: "@felipe.edita", name: "Felipe Edita", followers: 3260 },
+      { id: "a3", platform: "facebook", handle: "Jarvis Cortes", name: "Página", followers: 5120 },
+      { id: "a4", platform: "tiktok", handle: "@jarviscortes", name: "Jarvis Cortes", followers: 42700 },
+      { id: "a5", platform: "tiktok", handle: "@felipe.edits", name: "Felipe Edits", followers: 1980 },
+      { id: "a6", platform: "youtube", handle: "Jarvis Cortes", name: "Canal", followers: 9350 }
+    ],
+    posts: [
+      { id: "p1", caption: "3 cortes que deixam qualquer vídeo mais dinâmico ✂️ Salva pra usar depois!", accountIds: ["a1", "a4", "a6"], when: at(0, 19, 30), format: "reels", media: "VÍDEO", status: "agendado", options: { poll: false, hideLikes: true, noComments: false } },
+      { id: "p2", caption: "Antes e depois da color: qual você prefere? Comenta A ou B 👇", accountIds: ["a1", "a2", "a3"], when: at(D, 12, 0), format: "feed", media: "FOTO", status: "agendado", options: { poll: true, hideLikes: false, noComments: false } },
+      { id: "p3", caption: "Bastidores da edição de hoje", accountIds: ["a4", "a5"], when: at(2 * D, 18, 0), format: "reels", media: "VÍDEO", status: "agendado", options: { poll: false, hideLikes: false, noComments: false } },
+      { id: "p4", caption: "Transição de câmera girando, passo a passo 🎬", accountIds: ["a1", "a4"], when: at(-D, 20, 0), format: "reels", media: "VÍDEO", status: "publicado", options: {} }
+    ],
+    comments: [
+      { id: "c1", accountId: "a1", author: "@marina.vlogs", text: "Que transição incrível! Qual app você usa?", post: "Transição de câmera girando", when: now - 40 * 60e3 },
+      { id: "c2", accountId: "a1", author: "@rafa_drone", text: "Quero tutorial dessa!!", post: "Transição de câmera girando", when: now - 2 * H },
+      { id: "c3", accountId: "a3", author: "Juliana Prado", text: "Muito bom, compartilhei no grupo da faculdade", post: "Transição de câmera girando", when: now - 3 * H },
+      { id: "c4", accountId: "a6", author: "@cinemacaseiro", text: "Explica a configuração do keyframe? 🙏", post: "Transição de câmera girando", when: now - 5 * H, replied: "Vou fazer um vídeo só sobre isso essa semana!" }
+    ],
+    rules: [
+      { id: "r1", name: "Agradecer e convidar a seguir", enabled: true, accountIds: ["a1", "a2", "a3"], keyword: "",
+        replyText: "Valeu demais! 🙌 Te mandei uma mensagem.",
+        dmText: "Vi que você comentou nesse vídeo! Vamos postar mais vídeos assim, então pra não perder já segue a gente! 😉👍🏻",
+        runs: 37 },
+      { id: "r2", name: "Palavra-chave TUTORIAL", enabled: false, accountIds: ["a1"], keyword: "tutorial",
+        replyText: "Te enviei o link no direct 📩", dmText: "Aqui está o tutorial completo que você pediu: (cole o link aqui)", runs: 0 }
+    ]
+  });
+
+  let state;
+  try { state = JSON.parse(localStorage.getItem(KEY)) || SEED(); } catch { state = SEED(); }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+
+  let tab = "agenda";
+  let inboxFilter = "all";
+  const $ = (s, el = document) => el.querySelector(s);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const acct = (id) => state.accounts.find((a) => a.id === id);
+  const fmtNum = (n) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(".", ",") + " mil" : String(n);
+  const fmtTime = (iso) => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const dayLabel = (iso) => {
+    const d = new Date(iso); const t = new Date(); t.setHours(0, 0, 0, 0);
+    const diff = Math.round((new Date(d).setHours(0, 0, 0, 0) - t) / D);
+    if (diff === 0) return "Hoje";
+    if (diff === 1) return "Amanhã";
+    if (diff === -1) return "Ontem";
+    return d.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "short" });
+  };
+  const ago = (ms) => { const m = Math.round((Date.now() - ms) / 60e3); return m < 60 ? `há ${m} min` : m < 1440 ? `há ${Math.round(m / 60)} h` : `há ${Math.round(m / 1440)} d`; };
+  const pf = (p, lg) => `<span class="pf ${p}${lg ? " lg" : ""}" aria-label="${PLATFORMS[p].name}">${PLATFORMS[p].short}</span>`;
+  const acctChip = (a) => a ? `<span class="acct">${pf(a.platform)}<span>${esc(a.handle)}</span></span>` : "";
+
+  function toast(msg) {
+    const t = $("#toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2600);
+  }
+
+  // Demo: anything whose time has passed counts as published.
+  function settle() {
+    state.posts.forEach((p) => { if (p.status === "agendado" && new Date(p.when).getTime() <= Date.now()) p.status = "publicado"; });
+  }
+
+  /* ---------- Views ---------- */
+
+  function viewAgenda() {
+    settle();
+    const upcoming = state.posts.filter((p) => p.status === "agendado").sort((a, b) => a.when.localeCompare(b.when));
+    const done = state.posts.filter((p) => p.status === "publicado").sort((a, b) => b.when.localeCompare(a.when)).slice(0, 5);
+    const pending = state.comments.filter((c) => !c.replied).length;
+    const groups = {};
+    upcoming.forEach((p) => (groups[dayLabel(p.when)] ||= []).push(p));
+
+    return `
+      <h2 class="view-title">Agenda</h2>
+      <p class="view-sub">Tudo que vai sair nas suas contas, em ordem.</p>
+      <div class="stats">
+        <div class="stat"><b>${upcoming.length}</b><span>agendados</span></div>
+        <div class="stat"><b>${state.accounts.length}</b><span>contas</span></div>
+        <div class="stat"><b>${pending}</b><span>sem resposta</span></div>
+      </div>
+      ${upcoming.length ? Object.entries(groups).map(([day, posts]) => `
+        <h3 class="group">${esc(day)}</h3>
+        <div class="stack">${posts.map(postCard).join("")}</div>`).join("")
+      : `<div class="empty">Nada agendado. Toque em <b>+</b> para criar o primeiro post.</div>`}
+      ${done.length ? `<h3 class="group">Publicados</h3><div class="stack">${done.map(postCard).join("")}</div>` : ""}
+    `;
+  }
+
+  function postCard(p) {
+    const accts = p.accountIds.map(acct).filter(Boolean);
+    const reminders = [p.options?.poll && "criar enquete", p.options?.hideLikes && "ocultar curtidas"].filter(Boolean);
+    return `<article class="card post">
+      <div class="thumb">${p.thumb ? `<img src="${p.thumb}" alt="">` : esc(p.media || "POST")}</div>
+      <div class="post-body">
+        <div class="row"><span class="post-time">${fmtTime(p.when)}</span>
+          <span class="status ${p.status}">${p.status === "agendado" ? "Agendado" : "Publicado"}</span>
+          ${reminders.length && p.status === "agendado" ? `<span class="status lembrete" title="Você recebe um aviso para fazer isso no app oficial">Lembrete: ${reminders.join(", ")}</span>` : ""}
+        </div>
+        <p class="caption">${esc(p.caption) || "<i>Sem legenda</i>"}</p>
+        <div class="row">${accts.map(acctChip).join("")}</div>
+        ${p.status === "agendado" ? `<div class="actions">
+          <button class="btn" data-action="publish-now" data-id="${p.id}">Publicar agora</button>
+          <button class="btn danger" data-action="delete-post" data-id="${p.id}">Excluir</button>
+        </div>` : ""}
+      </div>
+    </article>`;
+  }
+
+  function viewInbox() {
+    const list = state.comments
+      .filter((c) => inboxFilter === "all" || (inboxFilter === "pending" ? !c.replied : acct(c.accountId)?.platform === inboxFilter))
+      .sort((a, b) => b.when - a.when);
+    const filters = [["all", "Todos"], ["pending", "Sem resposta"], ...ORDER.map((p) => [p, PLATFORMS[p].name])];
+    return `
+      <h2 class="view-title">Comentários</h2>
+      <p class="view-sub">Responda todas as contas num lugar só.</p>
+      <div class="chips">${filters.map(([k, l]) => `<button class="chip" data-action="filter" data-f="${k}" aria-pressed="${inboxFilter === k}">${l}</button>`).join("")}</div>
+      ${inboxFilter === "tiktok" ? `<div class="note" style="margin-bottom:10px">Comentários do TikTok só aparecem em contas <strong>Business</strong> depois que o TikTok aprovar o acesso à API de negócios.</div>` : ""}
+      <div class="stack">${list.length ? list.map(commentCard).join("") : `<div class="empty">Nenhum comentário aqui.</div>`}</div>
+    `;
+  }
+
+  function commentCard(c) {
+    const a = acct(c.accountId);
+    const canDm = a && (a.platform === "instagram" || a.platform === "facebook");
+    return `<article class="card">
+      <div class="comment-head">
+        <div class="avatar">${esc((c.author.replace("@", "")[0] || "?").toUpperCase())}</div>
+        <div class="comment-meta"><b>${esc(c.author)}</b><small>${ago(c.when)} · em “${esc(c.post)}”</small></div>
+        ${a ? pf(a.platform) : ""}
+      </div>
+      <p class="comment-text">${esc(c.text)}</p>
+      ${c.replied ? `<div class="replied"><span class="tag">Respondido</span><br>${esc(c.replied)}</div>` : ""}
+      ${c.dmSent ? `<div class="replied"><span class="tag">Mensagem privada enviada</span><br>${esc(c.dmSent)}</div>` : ""}
+      <div class="actions">
+        ${!c.replied ? `<button class="btn primary" data-action="reply" data-id="${c.id}">Responder</button>` : ""}
+        ${canDm && !c.dmSent ? `<button class="btn" data-action="dm" data-id="${c.id}">Mensagem privada</button>` : ""}
+      </div>
+    </article>`;
+  }
+
+  function viewRules() {
+    return `
+      <h2 class="view-title">Automações</h2>
+      <p class="view-sub">Quando alguém comentar, o app responde e manda uma mensagem privada sozinho.</p>
+      <div class="note" style="margin-bottom:14px">Funciona no <strong>Instagram</strong> e no <strong>Facebook</strong>. Quem só <strong>curtiu</strong> não pode receber mensagem automática: nenhuma rede informa quem curtiu nem se a pessoa te segue.</div>
+      <div class="stack">${state.rules.map(ruleCard).join("")}</div>
+      <div style="margin-top:14px"><button class="btn block" data-action="new-rule">Nova automação</button></div>
+    `;
+  }
+
+  function ruleCard(r) {
+    const accts = r.accountIds.map(acct).filter(Boolean);
+    return `<article class="card">
+      <div class="row" style="justify-content:space-between;flex-wrap:nowrap">
+        <b style="min-width:0">${esc(r.name)}</b>
+        <button class="switch" role="switch" aria-checked="${r.enabled}" aria-label="Ativar ${esc(r.name)}" data-action="toggle-rule" data-id="${r.id}"></button>
+      </div>
+      <dl class="rule-flow">
+        <dt>Quando</dt><dd>${r.keyword ? `Alguém comentar “${esc(r.keyword)}”` : "Alguém comentar qualquer coisa"}</dd>
+        <dt>Em</dt><dd><div class="row">${accts.map(acctChip).join("") || "Nenhuma conta"}</div></dd>
+        <dt>Responder no post</dt><dd>${esc(r.replyText) || "<i>Não responder</i>"}</dd>
+        <dt>Mensagem privada</dt><dd>${esc(r.dmText) || "<i>Não enviar</i>"}</dd>
+      </dl>
+      <div class="actions" style="justify-content:space-between;align-items:center">
+        <small style="color:var(--muted)">${r.runs} ${r.runs === 1 ? "vez" : "vezes"} esta semana</small>
+        <span class="row"><button class="btn ghost" data-action="edit-rule" data-id="${r.id}">Editar</button><button class="btn danger" data-action="delete-rule" data-id="${r.id}">Excluir</button></span>
+      </div>
+    </article>`;
+  }
+
+  function viewAccounts() {
+    return `
+      <h2 class="view-title">Contas</h2>
+      <p class="view-sub">Conecte quantas contas quiser em cada rede.</p>
+      <div class="stack">${ORDER.map((p) => {
+        const list = state.accounts.filter((a) => a.platform === p);
+        return `<section class="card">
+          <div class="platform-head">${pf(p, true)}<div><b>${PLATFORMS[p].name}</b><small>${esc(PLATFORMS[p].need)}</small></div>
+            <button class="btn" data-action="connect" data-p="${p}">Conectar</button></div>
+          ${list.map((a) => `<div class="acct-row"><div><b>${esc(a.handle)}</b><small>${fmtNum(a.followers)} seguidores</small></div>
+            <button class="btn danger" data-action="disconnect" data-id="${a.id}">Remover</button></div>`).join("")}
+        </section>`;
+      }).join("")}</div>
+      <h3 class="group">O que cada rede permite</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Função</th>${ORDER.map((p) => `<th>${PLATFORMS[p].short}</th>`).join("")}</tr></thead>
+        <tbody>${LIMITS.map(([f, v, n]) => `<tr><td><b>${f}</b>${n ? `<br><small style="color:var(--muted)">${n}</small>` : ""}</td>${v.map((x) => `<td class="${x}">${MARK[x]}</td>`).join("")}</tr>`).join("")}</tbody>
+      </table></div>
+      <div style="margin-top:18px"><button class="btn ghost" data-action="reset">Restaurar dados de exemplo</button></div>
+    `;
+  }
+
+  const VIEWS = { agenda: viewAgenda, inbox: viewInbox, rules: viewRules, accounts: viewAccounts };
+
+  function render() {
+    $("#view").innerHTML = VIEWS[tab]();
+    document.querySelectorAll(".tab[data-tab]").forEach((b) => {
+      if (b.dataset.tab === tab) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+    });
+    const pending = state.comments.filter((c) => !c.replied).length;
+    const badge = $("#inbox-badge"); badge.hidden = !pending; badge.textContent = pending;
+  }
+
+  /* ---------- Sheets ---------- */
+
+  function openSheet(html, onMount) {
+    $("#sheet-body").innerHTML = `<div class="grabber"></div>${html}`;
+    $("#sheet").hidden = false; $("#scrim").hidden = false;
+    document.body.style.overflow = "hidden";
+    onMount && onMount($("#sheet-body"));
+  }
+  function closeSheet() {
+    $("#sheet").hidden = true; $("#scrim").hidden = true; document.body.style.overflow = "";
+  }
+
+  function accountPicker(selected, filter) {
+    return ORDER.filter((p) => !filter || filter.includes(p)).map((p) => {
+      const list = state.accounts.filter((a) => a.platform === p);
+      if (!list.length) return "";
+      return list.map((a) => `<label class="pick">${pf(p)}<div><b>${esc(a.handle)}</b><small>${PLATFORMS[p].name}</small></div>
+        <input type="checkbox" name="acct" value="${a.id}" ${selected.includes(a.id) ? "checked" : ""}></label>`).join("");
+    }).join("") || `<div class="note">Conecte uma conta na aba Contas primeiro.</div>`;
+  }
+
+  function localInput(d) { const z = new Date(d.getTime() - d.getTimezoneOffset() * 60e3); return z.toISOString().slice(0, 16); }
+
+  function compose() {
+    const draft = { format: "reels", when: "schedule", thumb: null, media: null };
+    const def = new Date(Date.now() + 2 * H); def.setMinutes(0, 0, 0);
+    openSheet(`
+      <div class="sheet-head"><h2>Novo post</h2><button class="btn ghost" data-action="close">Cancelar</button></div>
+      <form id="compose-form" novalidate>
+        <div class="field"><span class="label">Mídia</span>
+          <label class="drop" for="c-media" id="c-drop">Toque para escolher foto ou vídeo</label>
+          <input id="c-media" type="file" accept="image/*,video/*" hidden>
+        </div>
+        <div class="field"><span class="label">Formato</span>
+          <div class="seg" id="c-format">
+            <button type="button" data-v="feed" aria-pressed="false">Feed</button>
+            <button type="button" data-v="reels" aria-pressed="true">Reels / Shorts</button>
+            <button type="button" data-v="story" aria-pressed="false">Story</button>
+          </div>
+        </div>
+        <div class="field"><label for="c-caption">Legenda</label>
+          <textarea class="input" id="c-caption" maxlength="2200" placeholder="Escreva a legenda e as hashtags"></textarea>
+          <div class="counter"><span id="c-count">0</span> / 2.200</div>
+        </div>
+        <div class="field" id="c-yt-field" hidden><label for="c-yt-title">Título no YouTube</label>
+          <input class="input" id="c-yt-title" maxlength="100" placeholder="Até 100 caracteres">
+        </div>
+        <div class="field"><span class="label">Publicar em</span><div class="stack" id="c-accts">${accountPicker([])}</div></div>
+        <div class="field"><span class="label">Quando</span>
+          <div class="seg two" id="c-when">
+            <button type="button" data-v="now" aria-pressed="false">Agora</button>
+            <button type="button" data-v="schedule" aria-pressed="true">Agendar</button>
+          </div>
+          <input class="input" type="datetime-local" id="c-date" value="${localInput(def)}">
+        </div>
+        <div class="field"><span class="label">Opções</span>
+          <div class="stack">
+            <label class="pick"><div><b>Desativar comentários</b><small>Instagram e TikTok</small></div><span class="opt-badge api">Automático</span><input type="checkbox" id="c-nocomments"></label>
+            <label class="pick"><div><b>Ocultar curtidas</b><small>O app te avisa para ativar no app oficial</small></div><span class="opt-badge manual">Lembrete</span><input type="checkbox" id="c-hidelikes"></label>
+            <label class="pick"><div><b>Enquete</b><small>O app te avisa para criar a enquete no story</small></div><span class="opt-badge manual">Lembrete</span><input type="checkbox" id="c-poll"></label>
+          </div>
+        </div>
+        <p class="error" id="c-error" hidden></p>
+        <button class="btn primary block" type="submit" id="c-submit">Agendar</button>
+      </form>`, (root) => {
+      const cap = $("#c-caption", root), count = $("#c-count", root);
+      const submit = $("#c-submit", root);
+      const updateSubmit = () => {
+        const n = root.querySelectorAll('input[name="acct"]:checked').length;
+        submit.textContent = (draft.when === "now" ? "Publicar" : "Agendar") + (n ? ` em ${n} ${n === 1 ? "conta" : "contas"}` : "");
+        const hasYt = [...root.querySelectorAll('input[name="acct"]:checked')].some((i) => acct(i.value)?.platform === "youtube");
+        $("#c-yt-field", root).hidden = !hasYt;
+      };
+      cap.addEventListener("input", () => (count.textContent = cap.value.length.toLocaleString("pt-BR")));
+      $("#c-accts", root).addEventListener("change", updateSubmit);
+      const seg = (id, key, after) => $(id, root).addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-v]"); if (!b) return;
+        draft[key] = b.dataset.v;
+        $(id, root).querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+        after && after();
+      });
+      seg("#c-format", "format");
+      seg("#c-when", "when", () => { $("#c-date", root).hidden = draft.when === "now"; updateSubmit(); });
+      $("#c-media", root).addEventListener("change", (e) => {
+        const f = e.target.files[0]; if (!f) return;
+        draft.media = f.type.startsWith("video") ? "VÍDEO" : "FOTO";
+        const drop = $("#c-drop", root);
+        if (f.type.startsWith("image")) {
+          const img = new Image(); const url = URL.createObjectURL(f);
+          img.onload = () => {
+            const c = document.createElement("canvas"); const s = 240 / Math.max(img.width, img.height);
+            c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+            c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+            draft.thumb = c.toDataURL("image/jpeg", 0.75);
+            drop.innerHTML = `<img src="${draft.thumb}" alt="Prévia">`;
+            URL.revokeObjectURL(url);
+          };
+          img.src = url;
+        } else {
+          drop.textContent = `🎬 ${f.name}`;
+        }
+      });
+      $("#compose-form", root).addEventListener("submit", (e) => {
+        e.preventDefault();
+        const ids = [...root.querySelectorAll('input[name="acct"]:checked')].map((i) => i.value);
+        const err = $("#c-error", root);
+        const when = draft.when === "now" ? new Date() : new Date($("#c-date", root).value);
+        const problem = !ids.length ? "Escolha pelo menos uma conta." :
+          (!cap.value.trim() && !draft.media) ? "Adicione uma mídia ou uma legenda." :
+          (draft.when === "schedule" && (isNaN(when) || when.getTime() < Date.now())) ? "Escolha um horário no futuro." : "";
+        if (problem) { err.textContent = problem; err.hidden = false; return; }
+        state.posts.push({
+          id: uid(), caption: cap.value.trim(), accountIds: ids, when: when.toISOString(), format: draft.format,
+          media: draft.media || "TEXTO", thumb: draft.thumb, status: draft.when === "now" ? "publicado" : "agendado",
+          ytTitle: $("#c-yt-title", root).value.trim(),
+          options: { noComments: $("#c-nocomments", root).checked, hideLikes: $("#c-hidelikes", root).checked, poll: $("#c-poll", root).checked }
+        });
+        save(); closeSheet(); tab = "agenda"; render();
+        toast(draft.when === "now" ? `Publicado em ${ids.length} ${ids.length === 1 ? "conta" : "contas"} (demonstração)` : `Agendado para ${dayLabel(when.toISOString()).toLowerCase()} às ${fmtTime(when.toISOString())}`);
+      });
+      updateSubmit();
+    });
+  }
+
+  const QUICK = ["Valeu demais! 🙌", "Obrigado! Tem mais vindo por aí 🔥", "Te mandei no direct 📩"];
+
+  function replySheet(c, mode) {
+    const isDm = mode === "dm";
+    const rule = state.rules.find((r) => r.enabled && r.accountIds.includes(c.accountId));
+    const preset = isDm ? (rule?.dmText || "") : "";
+    openSheet(`
+      <div class="sheet-head"><h2>${isDm ? "Mensagem privada" : "Responder"}</h2><button class="btn ghost" data-action="close">Cancelar</button></div>
+      <div class="card" style="margin-bottom:14px"><b>${esc(c.author)}</b><p class="comment-text" style="margin-bottom:0">${esc(c.text)}</p></div>
+      ${isDm ? `<div class="note" style="margin-bottom:14px">A rede permite <strong>uma</strong> mensagem privada por comentário, em até 7 dias.</div>` : ""}
+      <form id="reply-form">
+        ${!isDm ? `<div class="chips">${QUICK.map((q) => `<button type="button" class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>` : ""}
+        <div class="field"><label for="r-text">${isDm ? "Mensagem" : "Resposta"}</label>
+          <textarea class="input" id="r-text" required>${esc(preset)}</textarea></div>
+        <button class="btn primary block" type="submit">${isDm ? "Enviar mensagem" : "Responder"}</button>
+      </form>`, (root) => {
+      root.querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => ($("#r-text", root).value = b.dataset.q)));
+      $("#reply-form", root).addEventListener("submit", (e) => {
+        e.preventDefault();
+        const v = $("#r-text", root).value.trim(); if (!v) return;
+        if (isDm) c.dmSent = v; else c.replied = v;
+        save(); closeSheet(); render(); toast(isDm ? "Mensagem enviada (demonstração)" : "Resposta publicada (demonstração)");
+      });
+    });
+  }
+
+  function ruleSheet(r) {
+    const editing = !!r;
+    r = r || { id: uid(), name: "", enabled: true, accountIds: [], keyword: "", replyText: "", dmText: "", runs: 0 };
+    openSheet(`
+      <div class="sheet-head"><h2>${editing ? "Editar automação" : "Nova automação"}</h2><button class="btn ghost" data-action="close">Cancelar</button></div>
+      <form id="rule-form">
+        <div class="field"><label for="ru-name">Nome</label><input class="input" id="ru-name" value="${esc(r.name)}" placeholder="Ex.: Convidar a seguir" required></div>
+        <div class="field"><label for="ru-kw">Só quando o comentário tiver a palavra</label><input class="input" id="ru-kw" value="${esc(r.keyword)}" placeholder="Deixe vazio para qualquer comentário"></div>
+        <div class="field"><span class="label">Contas (Instagram e Facebook)</span><div class="stack">${accountPicker(r.accountIds, ["instagram", "facebook"])}</div></div>
+        <div class="field"><label for="ru-reply">Resposta pública no comentário</label><textarea class="input" id="ru-reply" placeholder="Opcional">${esc(r.replyText)}</textarea></div>
+        <div class="field"><label for="ru-dm">Mensagem privada</label><textarea class="input" id="ru-dm" placeholder="Opcional">${esc(r.dmText)}</textarea></div>
+        <p class="error" id="ru-error" hidden></p>
+        <button class="btn primary block" type="submit">Salvar</button>
+      </form>`, (root) => {
+      $("#rule-form", root).addEventListener("submit", (e) => {
+        e.preventDefault();
+        const err = $("#ru-error", root);
+        r.name = $("#ru-name", root).value.trim();
+        r.keyword = $("#ru-kw", root).value.trim();
+        r.replyText = $("#ru-reply", root).value.trim();
+        r.dmText = $("#ru-dm", root).value.trim();
+        r.accountIds = [...root.querySelectorAll('input[name="acct"]:checked')].map((i) => i.value);
+        const problem = !r.name ? "Dê um nome à automação." : !r.accountIds.length ? "Escolha pelo menos uma conta." : (!r.replyText && !r.dmText) ? "Escreva uma resposta ou uma mensagem." : "";
+        if (problem) { err.textContent = problem; err.hidden = false; return; }
+        if (!editing) state.rules.push(r);
+        save(); closeSheet(); render(); toast("Automação salva");
+      });
+    });
+  }
+
+  function connectSheet(p) {
+    openSheet(`
+      <div class="sheet-head"><h2>Conectar ${PLATFORMS[p].name}</h2><button class="btn ghost" data-action="close">Cancelar</button></div>
+      <div class="note" style="margin-bottom:14px">No app final, este botão abre o login oficial do ${PLATFORMS[p].name} e você autoriza o Jarvis Social. Você pode repetir para conectar várias contas. <br><br><strong>Requisito:</strong> ${esc(PLATFORMS[p].need)}.</div>
+      <form id="connect-form">
+        <div class="field"><label for="cn-handle">Nome da conta (demonstração)</label><input class="input" id="cn-handle" placeholder="${p === "facebook" || p === "youtube" ? "Nome da página ou canal" : "@usuario"}" required></div>
+        <button class="btn primary block" type="submit">Conectar</button>
+      </form>`, (root) => {
+      $("#connect-form", root).addEventListener("submit", (e) => {
+        e.preventDefault();
+        let h = $("#cn-handle", root).value.trim(); if (!h) return;
+        if ((p === "instagram" || p === "tiktok") && !h.startsWith("@")) h = "@" + h;
+        state.accounts.push({ id: uid(), platform: p, handle: h, name: h, followers: 0 });
+        save(); closeSheet(); render(); toast(`${h} conectada`);
+      });
+    });
+  }
+
+  /* ---------- Events ---------- */
+
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-tab],[data-action]");
+    if (e.target.id === "scrim") return closeSheet();
+    if (!t) return;
+    if (t.dataset.tab) { tab = t.dataset.tab; render(); window.scrollTo(0, 0); return; }
+    const id = t.dataset.id;
+    switch (t.dataset.action) {
+      case "compose": return compose();
+      case "close": return closeSheet();
+      case "filter": inboxFilter = t.dataset.f; return render();
+      case "publish-now": { const p = state.posts.find((x) => x.id === id); p.status = "publicado"; p.when = new Date().toISOString(); save(); render(); return toast("Publicado (demonstração)"); }
+      case "delete-post": state.posts = state.posts.filter((x) => x.id !== id); save(); render(); return toast("Post excluído");
+      case "reply": return replySheet(state.comments.find((x) => x.id === id), "reply");
+      case "dm": return replySheet(state.comments.find((x) => x.id === id), "dm");
+      case "toggle-rule": { const r = state.rules.find((x) => x.id === id); r.enabled = !r.enabled; save(); render(); return toast(r.enabled ? "Automação ligada" : "Automação desligada"); }
+      case "new-rule": return ruleSheet();
+      case "edit-rule": return ruleSheet(state.rules.find((x) => x.id === id));
+      case "delete-rule": state.rules = state.rules.filter((x) => x.id !== id); save(); render(); return toast("Automação excluída");
+      case "connect": return connectSheet(t.dataset.p);
+      case "disconnect": {
+        state.accounts = state.accounts.filter((x) => x.id !== id);
+        state.posts.forEach((p) => (p.accountIds = p.accountIds.filter((a) => a !== id)));
+        state.posts = state.posts.filter((p) => p.accountIds.length);
+        save(); render(); return toast("Conta removida");
+      }
+      case "reset": state = SEED(); save(); render(); return toast("Dados de exemplo restaurados");
+    }
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); });
+
+  render();
+  if ("serviceWorker" in navigator && location.protocol === "https:" && !/claude|anthropic/.test(location.hostname)) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+})();
+</script>
