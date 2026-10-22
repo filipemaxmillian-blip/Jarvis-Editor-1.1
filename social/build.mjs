@@ -1,7 +1,9 @@
-// Wraps src/app.html in a full PWA document and copies public/ into dist/.
+// Inlines src/app.js into src/app.html, wraps it in a full PWA document and copies public/ into dist/.
+// Also writes dist/preview.html: the same app without the PWA wrapper, for the shareable preview.
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
-const app = readFileSync(new URL("./src/app.html", import.meta.url), "utf8");
+const script = readFileSync(new URL("./src/app.js", import.meta.url), "utf8");
+const app = readFileSync(new URL("./src/app.html", import.meta.url), "utf8").replace("/*SCRIPT*/", () => script);
 const head = `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -21,4 +23,5 @@ const out = new URL("./dist/", import.meta.url);
 mkdirSync(out, { recursive: true });
 cpSync(new URL("./public/", import.meta.url), out, { recursive: true });
 writeFileSync(new URL("index.html", out), head + app + "\n</html>\n");
+writeFileSync(new URL("preview.html", out), app);
 console.log("dist/ pronto");

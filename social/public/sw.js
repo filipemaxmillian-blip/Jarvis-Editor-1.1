@@ -1,5 +1,5 @@
 // Keeps the app shell available offline. Bump CACHE when shipping a new version.
-const CACHE = "jarvis-social-v1";
+const CACHE = "jarvis-social-v2";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
@@ -16,7 +16,9 @@ self.addEventListener("activate", (e) => {
 
 // Network first, cache as fallback, so updates show up as soon as you're online.
 self.addEventListener("fetch", (e) => {
-  if (e.request.method !== "GET" || new URL(e.request.url).origin !== location.origin) return;
+  const url = new URL(e.request.url);
+  // Only the app itself is cached; account data, login and media always come from the server.
+  if (e.request.method !== "GET" || url.origin !== location.origin || /^\/(api|auth|media|webhooks)\//.test(url.pathname)) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
