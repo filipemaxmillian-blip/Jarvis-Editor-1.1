@@ -24,6 +24,11 @@ export class MetaError extends Error {
   }
 }
 
+// Code 190: the access token expired or was revoked (password change, app removed). The account must be reconnected.
+export const isTokenError = (err) => err?.code === 190 || err?.code === 102;
+
+const toIso = (t) => new Date(String(t).replace(/\+0000$/, "Z")).toISOString();
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function graph(method, path, params = {}, token) {
@@ -155,4 +160,25 @@ export function sendPrivateReply({ pageId, commentId, token, text }) {
     recipient: { comment_id: commentId },
     message: { text }
   }, token);
+}
+
+// Recent comments on the latest posts. Backs up the webhooks, which can be delayed or not yet set up.
+export async function recentInstagramComments(igId, token) {
+  const r = await graph("GET", `/${igId}/media`, {
+    fields: "id,caption,comments.limit(50){id,text,timestamp,username,from}", limit: 10
+  }, token);
+  return r.data.flatMap((m) => (m.comments?.data || []).map((c) => ({
+    id: c.id, text: c.text, createdAt: toIso(c.timestamp), mediaId: m.id,
+    author: c.username ? `@${c.username}` : "Alguém", authorId: c.from?.id
+  })));
+}
+
+export async function recentFacebookComments(pageId, token) {
+  const r = await graph("GET", `/${pageId}/posts`, {
+    fields: "id,comments.limit(50).order(reverse_chronological){id,message,created_time,from}", limit: 10
+  }, token);
+  return r.data.flatMap((p) => (p.comments?.data || []).map((c) => ({
+    id: c.id, text: c.message, createdAt: toIso(c.created_time), mediaId: p.id,
+    author: c.from?.name || "Alguém", authorId: c.from?.id
+  })));
 }

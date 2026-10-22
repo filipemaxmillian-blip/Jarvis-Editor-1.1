@@ -18,7 +18,8 @@ const parseJson = (s, fallback) => { try { return JSON.parse(s); } catch { retur
 
 // Everything the app needs to draw its screens, without tokens.
 export function appState() {
-  const accounts = db.prepare("SELECT id, platform, handle, followers FROM accounts ORDER BY platform, handle").all();
+  const accounts = db.prepare("SELECT id, platform, handle, followers, needs_reconnect FROM accounts ORDER BY platform, handle").all()
+    .map(({ needs_reconnect, ...a }) => ({ ...a, needsReconnect: Boolean(needs_reconnect) }));
   const targets = db.prepare("SELECT post_id, account_id, status, error FROM post_targets").all();
   const posts = db.prepare("SELECT * FROM posts ORDER BY when_at").all().map((p) => {
     const mine = targets.filter((t) => t.post_id === p.id);

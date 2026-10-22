@@ -67,4 +67,24 @@ db.exec(`
     account_ids TEXT NOT NULL DEFAULT '[]',
     runs INTEGER NOT NULL DEFAULT 0
   );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    endpoint TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
 `);
+
+// Columns added after the first release.
+const accountColumns = db.prepare("PRAGMA table_info(accounts)").all().map((c) => c.name);
+if (!accountColumns.includes("needs_reconnect")) db.exec("ALTER TABLE accounts ADD COLUMN needs_reconnect INTEGER NOT NULL DEFAULT 0");
+
+export const settings = {
+  get: (key) => db.prepare("SELECT value FROM settings WHERE key = ?").get(key)?.value ?? null,
+  set: (key, value) => db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, String(value))
+};

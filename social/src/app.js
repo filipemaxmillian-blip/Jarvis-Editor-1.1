@@ -59,6 +59,14 @@
   let mode = "demo"; // "live" when the server answers
   let state = { accounts: [], posts: [], comments: [], rules: [] };
   let metaConfigured = false;
+  let setup = null; // server checklist, live mode only
+
+  const DEMO_SETUP = {
+    publicUrl: "https://jarvis-social.onrender.com", https: true, metaConfigured: false,
+    redirectUri: "https://jarvis-social.onrender.com/auth/meta/callback",
+    webhookUrl: "https://jarvis-social.onrender.com/webhooks/meta",
+    verifyToken: "(gerado pela hospedagem)", accounts: 4, needsReconnect: 0
+  };
 
   const saveDemo = () => { try { localStorage.setItem(DEMO_KEY, JSON.stringify(state)); } catch {} };
   const loadDemo = () => { try { return JSON.parse(localStorage.getItem(DEMO_KEY)) || SEED(); } catch { return SEED(); } };
@@ -78,9 +86,51 @@
   }
 
   async function refresh() {
-    const data = await request("GET", "api/state");
+    const [data, s] = await Promise.all([request("GET", "api/state"), request("GET", "api/setup")]);
     metaConfigured = data.metaConfigured;
     state = data;
+    setup = s;
+  }
+
+  /* ---------- Notifications ---------- */
+
+  const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  let pushOn = false;
+
+  async function checkPush() {
+    if (!pushSupported()) return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    pushOn = Boolean(await reg?.pushManager.getSubscription());
+  }
+
+  const keyBytes = (b64) => {
+    const raw = atob((b64 + "=".repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
+    return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  };
+
+  async function enablePush() {
+    if (mode !== "live") return toast("No app instalado, este botão ativa os avisos no iPhone.");
+    if (!pushSupported()) return toast(isStandalone() ? "Este aparelho não aceita notificações." : "Primeiro instale o app: Compartilhar > Adicionar à Tela de Início.");
+    try {
+      // iOS only shows the permission prompt when this runs straight from a tap.
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return toast("Notificações bloqueadas. Libere em Ajustes > Notificações > Jarvis Social.");
+      const reg = await navigator.serviceWorker.ready;
+      const { key } = await request("GET", "api/push/key");
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) });
+      await request("POST", "api/push/subscribe", sub.toJSON());
+      pushOn = true;
+      await refresh(); render(); toast("Notificações ativadas");
+    } catch (err) {
+      toast(err.message || "Não foi possível ativar as notificações.");
+    }
+  }
+
+  function copyText(text) {
+    const done = () => toast("Copiado");
+    navigator.clipboard?.writeText(text).then(done, () => toast("Toque e segure o texto para copiar."))
+      ?? toast("Toque e segure o texto para copiar.");
   }
 
   // Runs an action against the server, or applies `demo` to local data. Then redraws.
@@ -145,12 +195,21 @@
         <div class="stat"><b>${pending}</b><span>sem resposta</span></div>
       </div>
       ${!state.accounts.length ? `<div class="note" style="margin-top:14px">Comece conectando suas contas na aba <strong>Contas</strong>.</div>` : ""}
+      ${reconnectNote()}
       ${upcoming.length ? Object.entries(groups).map(([day, posts]) => `
         <h3 class="group">${esc(day)}</h3>
         <div class="stack">${posts.map(postCard).join("")}</div>`).join("")
       : `<div class="empty">Nada agendado. Toque em <b>+</b> para criar um post.</div>`}
       ${done.length ? `<h3 class="group">Publicados</h3><div class="stack">${done.map(postCard).join("")}</div>` : ""}
     `;
+  }
+
+  function reconnectNote() {
+    const lost = state.accounts.filter((a) => a.needsReconnect);
+    if (!lost.length) return "";
+    return `<div class="card warn-card" style="margin-top:14px"><b>${lost.map((a) => esc(a.handle)).join(", ")} ${lost.length === 1 ? "foi desconectada" : "foram desconectadas"}</b>
+      <p class="view-sub" style="margin:4px 0 10px">A Meta cancelou o acesso (troca de senha ou permissão removida). Posts e automações dessa conta estão parados.</p>
+      <button class="btn primary" data-action="connect">Conectar de novo</button></div>`;
   }
 
   function postCard(p) {
@@ -185,6 +244,7 @@
     return `
       <h2 class="view-title">Comentários</h2>
       <p class="view-sub">Responda todas as contas num lugar só.</p>
+      ${mode === "live" ? `<div style="margin:-6px 0 12px"><button class="btn" data-action="sync">Buscar comentários agora</button></div>` : ""}
       <div class="chips">${filters.map(([k, l]) => `<button class="chip" data-action="filter" data-f="${k}" aria-pressed="${inboxFilter === k}">${l}</button>`).join("")}</div>
       <div class="stack">${list.length ? list.map(commentCard).join("") : `<div class="empty">Nenhum comentário ainda. Os novos aparecem aqui assim que chegam.</div>`}</div>
     `;
@@ -248,11 +308,16 @@
         const list = state.accounts.filter((a) => a.platform === p);
         return `<section class="card">
           <div class="platform-head">${pf(p, true)}<div><b>${PLATFORMS[p].name}</b><small>${esc(PLATFORMS[p].need)}</small></div></div>
-          ${list.length ? list.map((a) => `<div class="acct-row"><div><b>${esc(a.handle)}</b><small>${fmtNum(a.followers)} seguidores</small></div>
+          ${list.length ? list.map((a) => `<div class="acct-row"><div><b>${esc(a.handle)}</b>${a.needsReconnect
+              ? `<small style="color:var(--warn)">Desconectada: conecte de novo</small>`
+              : `<small>${fmtNum(a.followers)} seguidores</small>`}</div>
+            ${a.needsReconnect ? `<button class="btn" data-action="connect">Reconectar</button>` : ""}
             <button class="btn danger" data-action="disconnect" data-id="${a.id}">Remover</button></div>`).join("")
           : `<div class="acct-row"><div><small>Nenhuma conta conectada.</small></div></div>`}
         </section>`;
       }).join("")}</div>
+      <h3 class="group">Configuração</h3>
+      ${setupCard()}
       <h3 class="group">O que dá para fazer</h3>
       <div class="table-wrap"><table style="min-width:0">
         <thead><tr><th>Função</th>${ORDER.map((p) => `<th>${PLATFORMS[p].short}</th>`).join("")}</tr></thead>
@@ -262,6 +327,43 @@
         ${mode === "live" ? `<button class="btn ghost" data-action="logout">Sair</button>` : `<button class="btn ghost" data-action="reset">Restaurar dados de exemplo</button>`}
       </div>
     `;
+  }
+
+  function setupCard() {
+    const s = mode === "live" && setup ? setup : DEMO_SETUP;
+    let host = s.publicUrl;
+    try { host = new URL(s.publicUrl).host; } catch {}
+    const when = (iso) => ago(Date.parse(iso));
+    const items = [
+      [s.https, "Endereço com HTTPS", s.https ? s.publicUrl : "Defina PUBLIC_URL com o endereço https da hospedagem."],
+      [s.metaConfigured, "Chaves do app da Meta", s.metaConfigured ? "META_APP_ID e META_APP_SECRET configurados." : "Preencha META_APP_ID e META_APP_SECRET no servidor."],
+      [Boolean(s.webhookVerifiedAt), "Webhook confirmado pela Meta", s.webhookVerifiedAt ? `Confirmado ${when(s.webhookVerifiedAt)}.` : "Cole a URL de retorno e o token abaixo em Webhooks, no painel da Meta."],
+      [s.accounts > 0 && !s.needsReconnect, "Contas conectadas",
+        s.needsReconnect ? `${plural(s.needsReconnect, "conta precisa", "contas precisam")} ser conectada de novo.` : s.accounts ? `${plural(s.accounts, "conta conectada", "contas conectadas")}.` : "Toque em Conectar com Facebook."],
+      [Boolean(s.lastWebhookAt), "Comentários chegando na hora",
+        s.lastWebhookAt ? `Último aviso da Meta ${when(s.lastWebhookAt)}.` : s.lastSyncAt ? `Ainda não. O app busca a cada 3 minutos (última busca ${when(s.lastSyncAt)}).` : "Começa depois que uma conta for conectada."],
+      [pushOn, "Notificações neste iPhone", pushOn ? "Ativadas." : isStandalone() ? "Toque em Ativar notificações." : "Instale o app na Tela de Início e ative aqui."]
+    ];
+    const copies = [
+      ["Domínio do app", host],
+      ["URI de redirecionamento do OAuth", s.redirectUri],
+      ["URL de retorno do webhook", s.webhookUrl],
+      ["Token de verificação do webhook", s.verifyToken || "Defina META_WEBHOOK_VERIFY_TOKEN no servidor"]
+    ];
+    return `<section class="card">
+      ${items.map(([ok, title, detail]) => `<div class="check"><span class="check-dot ${ok ? "ok" : "bad"}" aria-label="${ok ? "Pronto" : "Pendente"}">${ok ? "✓" : "!"}</span>
+        <div><b>${title}</b><small>${esc(detail)}</small></div></div>`).join("")}
+      <div class="actions" style="margin-top:8px">
+        <button class="btn primary" data-action="push">${pushOn ? "Notificações ativas" : "Ativar notificações"}</button>
+        ${pushOn ? `<button class="btn" data-action="push-test">Enviar teste</button>` : ""}
+      </div>
+    </section>
+    <h3 class="group">Para colar no painel da Meta</h3>
+    <section class="card">
+      ${copies.map(([label, value]) => `<div class="field" style="margin-bottom:12px"><span class="label">${label}</span>
+        <div class="copy-row"><code>${esc(value)}</code><button class="btn" data-action="copy" data-v="${esc(value)}">Copiar</button></div></div>`).join("")}
+      <small style="color:var(--muted)">No webhook, assine <b>Page › feed</b> e <b>Instagram › comments</b>.</small>
+    </section>`;
   }
 
   const VIEWS = { agenda: viewAgenda, inbox: viewInbox, rules: viewRules, accounts: viewAccounts };
@@ -563,6 +665,10 @@
         }, "Conta removida");
       case "logout":
         return request("POST", "api/logout").finally(() => { state = { accounts: [], posts: [], comments: [], rules: [] }; render(); showLogin(); });
+      case "push": return pushOn ? toast("As notificações já estão ativas") : enablePush();
+      case "push-test": return act("POST", "api/push/test", {}, () => {}, "Notificação enviada");
+      case "sync": return act("POST", "api/sync", {}, () => {}, "Comentários atualizados");
+      case "copy": return copyText(t.dataset.v);
       case "reset": state = SEED(); saveDemo(); render(); return toast("Dados de exemplo restaurados");
     }
   });
@@ -576,14 +682,16 @@
       const res = await fetch("api/state", { credentials: "same-origin" });
       if (res.status === 401) { mode = "live"; render(); showLogin(); }
       else if (res.ok && (res.headers.get("content-type") || "").includes("json")) {
-        mode = "live"; const data = await res.json(); metaConfigured = data.metaConfigured; state = data;
+        mode = "live"; await refresh();
       } else { state = loadDemo(); }
     } catch {
       state = loadDemo();
     }
     if (params.has("conectadas")) { tab = "accounts"; toast(`${plural(Number(params.get("conectadas")), "conta conectada", "contas conectadas")}`); }
     if (params.has("erro")) { tab = "accounts"; toast(params.get("erro")); }
-    if (params.has("conectadas") || params.has("erro")) history.replaceState(null, "", location.pathname);
+    if (VIEWS[params.get("aba")]) tab = params.get("aba");
+    if ([...params.keys()].length) history.replaceState(null, "", location.pathname);
+    await checkPush().catch(() => {});
     render();
     // Keep the screens fresh while the app is open (new comments, finished posts).
     setInterval(() => { if (mode === "live" && !document.hidden && $("#sheet").hidden) refresh().then(render).catch(() => {}); }, 30_000);

@@ -5,10 +5,12 @@ import { join, dirname } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
-import { db } from "./db.js";
+import { db, settings } from "./db.js";
 import { accountWithToken, appState, nowIso } from "./store.js";
 import { publishDuePosts, startScheduler } from "./scheduler.js";
 import { mountWebhooks } from "./webhooks.js";
+import { startCommentSync, syncComments } from "./sync.js";
+import { notify, publicKey, removeSubscription, saveSubscription, subscriptionCount } from "./push.js";
 import { replyToComment, sendPrivateReply, exchangeCode, listPages, loginUrl, subscribePage } from "./meta.js";
 import { checkPassword, encrypt, endSession, oauthState, randomId, requireAuth, startSession } from "./security.js";
 
@@ -51,6 +53,55 @@ api.use(requireAuth, json);
 const fail = (res, status, error) => res.status(status).json({ error });
 
 api.get("/state", (req, res) => res.json({ ...appState(), metaConfigured: config.meta.configured }));
+
+/* ---------- Setup status ---------- */
+
+// Everything the "Configuração" screen shows: the values to paste in the Meta dashboard and what is working.
+api.get("/setup", (req, res) => {
+  res.json({
+    publicUrl: config.publicUrl,
+    https: config.publicUrl.startsWith("https://"),
+    metaConfigured: config.meta.configured,
+    redirectUri: `${config.publicUrl}/auth/meta/callback`,
+    webhookUrl: `${config.publicUrl}/webhooks/meta`,
+    verifyToken: config.meta.webhookVerifyToken,
+    webhookVerifiedAt: settings.get("webhook_verified_at"),
+    lastWebhookAt: settings.get("last_webhook_at"),
+    lastSyncAt: settings.get("last_sync_at"),
+    accounts: db.prepare("SELECT COUNT(*) AS n FROM accounts").get().n,
+    needsReconnect: db.prepare("SELECT COUNT(*) AS n FROM accounts WHERE needs_reconnect = 1").get().n,
+    pushDevices: subscriptionCount()
+  });
+});
+
+api.post("/sync", async (req, res) => {
+  await syncComments().catch(() => {});
+  res.json({ ok: true });
+});
+
+/* ---------- Notifications ---------- */
+
+api.get("/push/key", (req, res) => res.json({ key: publicKey }));
+
+api.post("/push/subscribe", (req, res) => {
+  try {
+    saveSubscription(req.body);
+    res.json({ ok: true });
+  } catch (err) {
+    fail(res, 400, err.message);
+  }
+});
+
+api.post("/push/unsubscribe", (req, res) => {
+  if (req.body?.endpoint) removeSubscription(req.body.endpoint);
+  res.json({ ok: true });
+});
+
+api.post("/push/test", async (req, res) => {
+  if (!subscriptionCount()) return fail(res, 400, "Ative as notificações primeiro.");
+  await notify("Jarvis Social", "As notificações estão funcionando. ✅");
+  res.json({ ok: true });
+});
 
 /* ---------- Media ---------- */
 
@@ -208,7 +259,7 @@ app.get("/auth/meta/callback", requireAuth, async (req, res) => {
     const upsert = db.prepare(`INSERT INTO accounts (id, platform, external_id, page_id, handle, followers, token_enc, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(platform, external_id) DO UPDATE SET handle = excluded.handle, followers = excluded.followers,
-        token_enc = excluded.token_enc, page_id = excluded.page_id`);
+        token_enc = excluded.token_enc, page_id = excluded.page_id, needs_reconnect = 0`);
     for (const page of pages) {
       const token = encrypt(page.access_token);
       upsert.run(randomId(), "facebook", page.id, page.id, page.name, page.followers_count || 0, token, nowIso());
@@ -235,4 +286,5 @@ app.listen(config.port, () => {
   console.log(`Jarvis Social rodando em ${config.publicUrl}`);
   if (!config.meta.configured) console.log("Aviso: META_APP_ID/META_APP_SECRET não configurados. Conectar contas não vai funcionar.");
   startScheduler();
+  if (config.meta.configured) startCommentSync();
 });

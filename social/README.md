@@ -9,7 +9,11 @@ App para iPhone que agenda posts e responde comentários em várias contas do **
 - **Agendar:** foto, Reels ou Story no Instagram; texto, foto ou vídeo no Facebook. Um post pode sair em várias contas.
 - **Comentários:** caixa única com os comentários novos de todas as contas, com resposta e mensagem privada.
 - **Automações:** quando alguém comenta, o app responde no post e manda uma mensagem privada sozinho. Automações com palavra-chave têm prioridade.
-- **Lembretes:** enquete e ocultar curtidas não existem na API da Meta, então viram lembretes no post.
+- **Lembretes:** enquete e ocultar curtidas não existem na API da Meta, então viram lembretes no post e uma notificação no iPhone assim que ele sai.
+- **Notificações:** post publicado com lembrete, post que falhou, comentário novo sem automação e conta desconectada.
+- **Busca de comentários:** além dos webhooks, o servidor busca os comentários dos 10 últimos posts de cada conta a cada 3 minutos.
+  As automações só respondem comentários feitos depois que a conta foi conectada, e dentro do prazo de 7 dias da Meta.
+- **Configuração:** a aba Contas mostra um checklist do que já funciona e os endereços prontos para colar no painel da Meta.
 
 Sem servidor (por exemplo, abrindo o `dist/preview.html`), o app roda em modo demonstração com dados de exemplo.
 
@@ -40,7 +44,8 @@ cria o serviço, o disco e gera `SECRET_KEY` e `META_WEBHOOK_VERIFY_TOKEN`. Pree
 - `PUBLIC_URL`: o endereço que o Render der, ex.: `https://jarvis-social.onrender.com`
 - `META_APP_ID` e `META_APP_SECRET`: do passo 3
 
-Qualquer hospedagem com Node 22.13+ e disco persistente serve (Railway, Fly.io, um VPS). Veja `.env.example`.
+Qualquer hospedagem com Node 22.13+ e disco persistente serve. Para Railway, Fly.io ou um VPS, use o `Dockerfile`
+(monte um volume em `/data`). Veja `.env.example`.
 
 ### 3. Criar o app na Meta
 
@@ -56,10 +61,13 @@ Em [developers.facebook.com](https://developers.facebook.com) > **Meus apps > Cr
    - Token de verificação: o valor de `META_WEBHOOK_VERIFY_TOKEN`
    - Assine **Page > feed** e **Instagram > comments**
 
+A aba **Contas > Configuração** do app mostra esses quatro valores com botão de copiar, e marca cada passo quando ele passa a funcionar.
+
 ### 4. Conectar e instalar
 
 1. Abra o `PUBLIC_URL` no Safari do iPhone, entre com a senha e toque em **Conectar com Facebook**.
 2. Toque em **Compartilhar > Adicionar à Tela de Início**.
+3. Abra o app pela Tela de Início, vá em **Contas** e toque em **Ativar notificações** (iOS 16.4 ou mais recente).
 
 ### Modo de desenvolvimento x modo ao vivo
 
@@ -87,5 +95,7 @@ Webhooks precisam de um endereço público com HTTPS (use um túnel como o `clou
   - `meta.js`: chamadas à Graph API
   - `scheduler.js`: publica os posts no horário (a cada 30 s)
   - `webhooks.js`: recebe comentários e roda as automações
+  - `sync.js`: busca comentários recentes a cada 3 minutos
+  - `push.js`: notificações no iPhone (as chaves são criadas sozinhas no primeiro uso)
   - `security.js`: sessão, senha e criptografia dos tokens
   - `db.js`: banco SQLite (embutido no Node)
