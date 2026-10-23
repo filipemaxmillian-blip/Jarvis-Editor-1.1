@@ -27,6 +27,9 @@
   "build": {
     "appId": "com.jarvis.editor",
     "productName": "Jarvis Editor",
+    "directories": {
+      "output": "release"
+    },
     "win": {
       "target": "nsis"
     }
