@@ -1,0 +1,31 @@
+# Hospedagem do Jarvis Social no Render (render.com > New > Blueprint > este repositório).
+services:
+  - type: web
+    name: jarvis-social
+    runtime: node
+    rootDir: social
+    plan: starter            # o disco persistente exige um plano pago
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /manifest.webmanifest
+    disk:
+      name: jarvis-social-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATA_DIR
+        value: /var/data
+      - key: SECRET_KEY
+        generateValue: true
+      - key: META_WEBHOOK_VERIFY_TOKEN
+        generateValue: true
+      - key: APP_PASSWORD
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false

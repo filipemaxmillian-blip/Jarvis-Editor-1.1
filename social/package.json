@@ -1,0 +1,19 @@
+{
+  "name": "jarvis-social",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Jarvis Social - agendador de posts e automações de comentários para Instagram e Facebook (PWA + servidor)",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node build.mjs && node --env-file=.env --disable-warning=ExperimentalWarning server/index.js"
+  },
+  "dependencies": {
+    "express": "4.22.3",
+    "web-push": "3.6.7"
+  }
+}
