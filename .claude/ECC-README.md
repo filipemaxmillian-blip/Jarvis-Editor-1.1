@@ -12,3 +12,12 @@ Equivalente manual ao perfil `minimal` do ECC para o alvo `claude-project`, sem 
 Não incluído: runtime de hooks, scripts Node do ECC e configs de outras plataformas.
 Alguns comandos citam scripts do ECC (ex.: `scripts/astra-review.js`) que não estão neste repositório.
 Para atualizar ou instalar a versão completa: `npx ecc-universal@2.2.3 setup`.
+
+## Revisão de segurança
+
+Removidos do ECC: skills que trazem scripts/hooks executáveis (`ck`, `continuous-learning*`,
+`delivery-gate`, `skill-comply`, `skill-stocktake`, `rules-distill`, `story-lifecycle`,
+`agent-self-evaluation`, `repo-scan`, `configure-ecc`, `deepseek-harness-setup`,
+`codehealth-mcp`, `plankton-code-quality`) e comandos que enviam código para outros
+provedores de IA ou importam conteúdo de URLs (`astra-review`, `multi-*`, `santa-loop`,
+`council-multi-model`, `instinct-*`, `jira`, `pm2`, `auto-update` etc.).

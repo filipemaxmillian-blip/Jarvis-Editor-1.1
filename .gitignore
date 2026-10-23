@@ -1,0 +1,22 @@
+# Dependências e builds
+node_modules/
+dist/
+release/
+out/
+
+# Segredos — nunca commitar
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Configurações locais do Claude Code
+.claude/settings.local.json
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+*.log
