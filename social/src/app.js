@@ -217,7 +217,7 @@
     const reminders = [p.options?.poll && "criar enquete", p.options?.hideLikes && "ocultar curtidas"].filter(Boolean);
     const errors = (p.errors || []).map((e) => `<p class="post-error">${esc(acct(e.accountId)?.handle || "Conta")}: ${esc(e.error)}</p>`).join("");
     return `<article class="card post">
-      <div class="thumb">${p.thumb ? `<img src="${p.thumb}" alt="">` : esc(p.media || "POST")}</div>
+      <div class="thumb">${p.thumb ? `<img src="${esc(p.thumb)}" alt="">` : esc(p.media || "POST")}</div>
       <div class="post-body">
         <div class="row"><span class="post-time">${fmtTime(p.when)}</span>
           <span class="status ${p.status}">${STATUS_LABEL[p.status] || p.status}</span>

@@ -1,6 +1,7 @@
 // Jarvis Social server: serves the app, the API, Meta login and webhooks, and runs the scheduler.
 import express from "express";
-import { createWriteStream, mkdirSync, unlinkSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, unlinkSync } from "node:fs";
+import { Transform } from "node:stream";
 import { join, dirname } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
@@ -22,6 +23,39 @@ const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
+/* ---------- Security headers ---------- */
+
+const cspFile = join(root, "dist", "csp.json");
+const scriptHashes = existsSync(cspFile) ? JSON.parse(readFileSync(cspFile, "utf8")).scriptHashes : [];
+const CSP = [
+  "default-src 'self'",
+  `script-src 'self' ${scriptHashes.join(" ")}`,
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: blob:",
+  "media-src 'self' blob:",
+  "connect-src 'self'",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'"
+].join("; ");
+
+app.use((req, res, next) => {
+  res.set({
+    "Content-Security-Policy": CSP,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Cross-Origin-Opener-Policy": "same-origin"
+  });
+  if (config.publicUrl.startsWith("https://")) res.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  next();
+});
+
 mountWebhooks(app, express);
 
 // Meta downloads media from here when publishing, so this folder is public. File names are random.
@@ -37,6 +71,7 @@ app.post("/api/login", json, (req, res) => {
   const recent = (attempts.get(ip) || []).filter((t) => t > Date.now() - 15 * 60e3);
   if (recent.length >= 10) return res.status(429).json({ error: "Muitas tentativas. Espere 15 minutos." });
   if (!checkPassword(req.body?.password)) {
+    if (attempts.size > 10_000) attempts.clear();
     attempts.set(ip, [...recent, Date.now()]);
     return res.status(401).json({ error: "Senha incorreta." });
   }
@@ -106,16 +141,30 @@ api.post("/push/test", async (req, res) => {
 /* ---------- Media ---------- */
 
 const EXT = { "image/jpeg": "jpg", "image/png": "png", "video/mp4": "mp4", "video/quicktime": "mov" };
+const MAX_UPLOAD_BYTES = 300 * 1024 * 1024;
+
+function limitBytes(max) {
+  let seen = 0;
+  return new Transform({
+    transform(chunk, _enc, done) {
+      seen += chunk.length;
+      done(seen > max ? new Error("too large") : null, chunk);
+    }
+  });
+}
 
 api.post("/media", async (req, res) => {
   const ext = EXT[req.get("content-type")];
   if (!ext) return fail(res, 415, "Use foto JPG/PNG ou vídeo MP4/MOV.");
+  if (Number(req.get("content-length")) > MAX_UPLOAD_BYTES) return fail(res, 413, "Arquivo grande demais (máximo 300 MB).");
   const name = `${randomId(16)}.${ext}`;
+  const path = join(mediaDir, name);
   try {
-    await pipeline(req, createWriteStream(join(mediaDir, name)));
+    await pipeline(req, limitBytes(MAX_UPLOAD_BYTES), createWriteStream(path));
     res.json({ file: name, kind: ext === "mp4" || ext === "mov" ? "video" : "image" });
   } catch {
-    fail(res, 500, "Não foi possível salvar o arquivo. Tente de novo.");
+    try { unlinkSync(path); } catch {}
+    fail(res, 500, "Não foi possível salvar o arquivo (máximo 300 MB). Tente de novo.");
   }
 });
 
@@ -136,7 +185,7 @@ api.post("/posts", (req, res) => {
   db.prepare(`INSERT INTO posts (id, caption, format, media_file, media_kind, thumb, when_at, status, options, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, 'agendado', ?, ?)`)
     .run(id, caption.trim(), format, media?.file ?? null, media?.kind ?? null,
-      typeof req.body.thumb === "string" && req.body.thumb.length < 200_000 ? req.body.thumb : null,
+      typeof req.body.thumb === "string" && req.body.thumb.length < 200_000 && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(req.body.thumb) ? req.body.thumb : null,
       whenAt.toISOString(), JSON.stringify({ noComments: !!options.noComments, hideLikes: !!options.hideLikes, poll: !!options.poll }), nowIso());
   for (const a of accounts) db.prepare("INSERT INTO post_targets (post_id, account_id) VALUES (?, ?)").run(id, a.id);
 

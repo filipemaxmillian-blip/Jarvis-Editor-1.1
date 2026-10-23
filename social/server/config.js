@@ -20,7 +20,7 @@ export const config = {
 config.meta.configured = Boolean(config.meta.appId && config.meta.appSecret);
 
 const missing = [];
-if (!config.appPassword) missing.push("APP_PASSWORD");
+if (config.appPassword.length < 12 || config.appPassword === "troque-esta-senha") missing.push("APP_PASSWORD (mínimo 12 caracteres, diferente do exemplo)");
 if (config.secretKey.length < 32) missing.push("SECRET_KEY (mínimo 32 caracteres)");
 if (missing.length) {
   console.error(`Configuração faltando: ${missing.join(", ")}. Copie .env.example para .env e preencha.`);

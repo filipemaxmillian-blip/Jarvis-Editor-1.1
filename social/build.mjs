@@ -1,5 +1,6 @@
 // Inlines src/app.js into src/app.html, wraps it in a full PWA document and copies public/ into dist/.
 // Also writes dist/preview.html: the same app without the PWA wrapper, for the shareable preview.
+import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const script = readFileSync(new URL("./src/app.js", import.meta.url), "utf8");
@@ -24,4 +25,9 @@ mkdirSync(out, { recursive: true });
 cpSync(new URL("./public/", import.meta.url), out, { recursive: true });
 writeFileSync(new URL("index.html", out), head + app + "\n</html>\n");
 writeFileSync(new URL("preview.html", out), app);
+
+// Hashes of the inline scripts, so the server's Content-Security-Policy allows only them.
+const scriptHashes = [...app.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+  .map(([, code]) => `'sha256-${createHash("sha256").update(code).digest("base64")}'`);
+writeFileSync(new URL("csp.json", out), JSON.stringify({ scriptHashes }));
 console.log("dist/ pronto");
